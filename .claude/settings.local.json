@@ -1,7 +1,24 @@
 {
   "permissions": {
     "allow": [
-      "Bash(gh auth status:*)"
+      "Bash(gh auth status:*)",
+      "Bash(git remote add:*)",
+      "Bash(git push:*)",
+      "Bash(dir \"d:\\\\Development\\\\molecular-property-prediction\\\\scripts\"\")",
+      "Bash(dir:*)",
+      "Bash(.venvScriptspython.exe scriptsvisualize_results.py)",
+      "Bash(\"d:/Development/molecular-property-prediction/venv/Scripts/python.exe\" \"d:/Development/molecular-property-prediction/scripts/visualize_results.py\")",
+      "Bash(\"d:/Development/molecular-property-prediction/venv/Scripts/pip.exe\" install torch-geometric torch-scatter torch-sparse -q)",
+      "Bash(\"d:/Development/molecular-property-prediction/venv/Scripts/pip.exe\" install:*)",
+      "Bash(\"d:/Development/molecular-property-prediction/venv/Scripts/python.exe\":*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(wc:*)",
+      "Bash(mkdir:*)",
+      "Bash(python -m py_compile:*)",
+      "Bash(python:*)",
+      "Bash(venvScriptspython -c \"from src.models import MolecularPropertyPredictor, GNN, AttentiveFPPredictor; from src.constants import TOX21_TASKS, MODELS_DIR; from src.utils import get_atom_features_gcn, get_atom_features_afp, get_bond_features; print\\(''All imports successful!''\\)\")",
+      "Bash(\"venv/Scripts/python.exe\" -c:*)"
     ]
   }
 }

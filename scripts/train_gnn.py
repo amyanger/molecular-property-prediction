@@ -3,6 +3,13 @@ Train Graph Neural Network for molecular property prediction.
 Converts molecules to graphs and uses message passing for predictions.
 """
 
+import sys
+from pathlib import Path
+
+# Add project root to path for imports
+PROJECT_DIR = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_DIR))
+
 import argparse
 import json
 import torch
@@ -10,75 +17,18 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import pandas as pd
-from pathlib import Path
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score
 from rdkit import Chem
 from tqdm import tqdm
 
-from torch_geometric.data import Data, Dataset, Batch
-from torch_geometric.nn import GCNConv, GATConv, global_mean_pool, global_max_pool
+from torch_geometric.data import Data, Dataset
 from torch_geometric.loader import DataLoader
 
-# Paths
-PROJECT_DIR = Path(__file__).parent.parent
-DATA_DIR = PROJECT_DIR / "data"
-MODELS_DIR = PROJECT_DIR / "models"
-
-# Tox21 task names
-TOX21_TASKS = [
-    "NR-AR", "NR-AR-LBD", "NR-AhR", "NR-Aromatase", "NR-ER",
-    "NR-ER-LBD", "NR-PPAR-gamma", "SR-ARE", "SR-ATAD5",
-    "SR-HSE", "SR-MMP", "SR-p53"
-]
-
-# Atom features
-ATOM_FEATURES = {
-    'atomic_num': list(range(1, 119)),  # 1-118
-    'degree': [0, 1, 2, 3, 4, 5],
-    'formal_charge': [-2, -1, 0, 1, 2],
-    'hybridization': [
-        Chem.rdchem.HybridizationType.SP,
-        Chem.rdchem.HybridizationType.SP2,
-        Chem.rdchem.HybridizationType.SP3,
-        Chem.rdchem.HybridizationType.SP3D,
-        Chem.rdchem.HybridizationType.SP3D2
-    ],
-    'is_aromatic': [False, True],
-    'num_hs': [0, 1, 2, 3, 4],
-}
-
-
-def one_hot(value, choices):
-    """One-hot encode a value given a list of choices."""
-    encoding = [0] * len(choices)
-    if value in choices:
-        encoding[choices.index(value)] = 1
-    return encoding
-
-
-def get_atom_features(atom):
-    """
-    Get feature vector for an atom.
-
-    Features:
-    - Atomic number (one-hot, 118 dim)
-    - Degree (one-hot, 6 dim)
-    - Formal charge (one-hot, 5 dim)
-    - Hybridization (one-hot, 5 dim)
-    - Is aromatic (1 dim)
-    - Number of Hs (one-hot, 5 dim)
-
-    Total: 140 features
-    """
-    features = []
-    features.extend(one_hot(atom.GetAtomicNum(), ATOM_FEATURES['atomic_num']))
-    features.extend(one_hot(atom.GetDegree(), ATOM_FEATURES['degree']))
-    features.extend(one_hot(atom.GetFormalCharge(), ATOM_FEATURES['formal_charge']))
-    features.extend(one_hot(atom.GetHybridization(), ATOM_FEATURES['hybridization']))
-    features.append(1 if atom.GetIsAromatic() else 0)
-    features.extend(one_hot(atom.GetTotalNumHs(), ATOM_FEATURES['num_hs']))
-    return features
+# Import from shared modules
+from src.models import GNN
+from src.constants import TOX21_TASKS, DATA_DIR, MODELS_DIR
+from src.utils import get_atom_features_gcn as get_atom_features
 
 
 def mol_to_graph(smiles, labels):
@@ -147,80 +97,6 @@ class MoleculeGraphDataset(Dataset):
 
     def get(self, idx):
         return self.graphs[idx]
-
-
-class GNN(nn.Module):
-    """
-    Graph Neural Network for molecular property prediction.
-
-    Architecture:
-    - Multiple GCN/GAT layers for message passing
-    - Global pooling to get graph-level representation
-    - MLP head for multi-task prediction
-    """
-
-    def __init__(
-        self,
-        num_node_features=140,
-        hidden_channels=256,
-        num_layers=4,
-        num_tasks=12,
-        dropout=0.2,
-        conv_type='gcn'
-    ):
-        super().__init__()
-
-        self.num_layers = num_layers
-        self.dropout = dropout
-
-        # Initial projection
-        self.input_proj = nn.Linear(num_node_features, hidden_channels)
-
-        # Graph convolution layers
-        self.convs = nn.ModuleList()
-        self.batch_norms = nn.ModuleList()
-
-        for _ in range(num_layers):
-            if conv_type == 'gcn':
-                self.convs.append(GCNConv(hidden_channels, hidden_channels))
-            else:  # GAT
-                self.convs.append(GATConv(hidden_channels, hidden_channels // 4, heads=4))
-            self.batch_norms.append(nn.BatchNorm1d(hidden_channels))
-
-        # Output MLP
-        self.output = nn.Sequential(
-            nn.Linear(hidden_channels * 2, hidden_channels),  # *2 for mean+max pooling
-            nn.BatchNorm1d(hidden_channels),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_channels, hidden_channels // 2),
-            nn.BatchNorm1d(hidden_channels // 2),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_channels // 2, num_tasks)
-        )
-
-    def forward(self, x, edge_index, batch):
-        # Initial projection
-        x = self.input_proj(x)
-        x = torch.relu(x)
-
-        # Message passing layers with residual connections
-        for i in range(self.num_layers):
-            x_res = x
-            x = self.convs[i](x, edge_index)
-            x = self.batch_norms[i](x)
-            x = torch.relu(x)
-            x = torch.dropout(x, p=self.dropout, train=self.training)
-            x = x + x_res  # Residual connection
-
-        # Global pooling - combine mean and max for richer representation
-        x_mean = global_mean_pool(x, batch)
-        x_max = global_max_pool(x, batch)
-        x = torch.cat([x_mean, x_max], dim=1)
-
-        # Output prediction
-        return self.output(x)
 
 
 def load_tox21_data():

@@ -4,6 +4,13 @@ AttentiveFP uses graph attention with edge features - state-of-the-art for molec
 Expected AUC: ~0.85+ on Tox21
 """
 
+import sys
+from pathlib import Path
+
+# Add project root to path for imports
+PROJECT_DIR = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_DIR))
+
 import argparse
 import json
 import torch
@@ -11,108 +18,18 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import pandas as pd
-from pathlib import Path
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score
 from rdkit import Chem
 from tqdm import tqdm
 
 from torch_geometric.data import Data, Dataset
-from torch_geometric.nn.models import AttentiveFP
 from torch_geometric.loader import DataLoader
 
-# Paths
-PROJECT_DIR = Path(__file__).parent.parent
-DATA_DIR = PROJECT_DIR / "data"
-MODELS_DIR = PROJECT_DIR / "models"
-
-# Tox21 task names
-TOX21_TASKS = [
-    "NR-AR", "NR-AR-LBD", "NR-AhR", "NR-Aromatase", "NR-ER",
-    "NR-ER-LBD", "NR-PPAR-gamma", "SR-ARE", "SR-ATAD5",
-    "SR-HSE", "SR-MMP", "SR-p53"
-]
-
-# Atom feature dimensions
-ATOM_FEATURES = {
-    'atomic_num': list(range(1, 119)),  # 118 elements
-    'degree': [0, 1, 2, 3, 4, 5, 6],
-    'formal_charge': [-2, -1, 0, 1, 2, 3],
-    'chiral_tag': [0, 1, 2, 3],
-    'num_hs': [0, 1, 2, 3, 4],
-    'hybridization': [
-        Chem.rdchem.HybridizationType.SP,
-        Chem.rdchem.HybridizationType.SP2,
-        Chem.rdchem.HybridizationType.SP3,
-        Chem.rdchem.HybridizationType.SP3D,
-        Chem.rdchem.HybridizationType.SP3D2,
-        Chem.rdchem.HybridizationType.UNSPECIFIED,
-    ],
-}
-
-# Bond feature dimensions
-BOND_FEATURES = {
-    'bond_type': [
-        Chem.rdchem.BondType.SINGLE,
-        Chem.rdchem.BondType.DOUBLE,
-        Chem.rdchem.BondType.TRIPLE,
-        Chem.rdchem.BondType.AROMATIC,
-    ],
-    'stereo': [0, 1, 2, 3, 4, 5],
-    'is_conjugated': [False, True],
-}
-
-
-def one_hot(value, choices):
-    """One-hot encode a value."""
-    encoding = [0] * len(choices)
-    if value in choices:
-        encoding[choices.index(value)] = 1
-    return encoding
-
-
-def get_atom_features(atom):
-    """
-    Get atom features for AttentiveFP.
-
-    Features (39 total):
-    - Atomic number (one-hot, 118)
-    - Degree (one-hot, 7)
-    - Formal charge (one-hot, 6)
-    - Chiral tag (one-hot, 4)
-    - Num Hs (one-hot, 5)
-    - Hybridization (one-hot, 6)
-    - Is aromatic (1)
-    - Is in ring (1)
-    """
-    features = []
-    features.extend(one_hot(atom.GetAtomicNum(), ATOM_FEATURES['atomic_num']))
-    features.extend(one_hot(atom.GetDegree(), ATOM_FEATURES['degree']))
-    features.extend(one_hot(atom.GetFormalCharge(), ATOM_FEATURES['formal_charge']))
-    features.extend(one_hot(int(atom.GetChiralTag()), ATOM_FEATURES['chiral_tag']))
-    features.extend(one_hot(atom.GetTotalNumHs(), ATOM_FEATURES['num_hs']))
-    features.extend(one_hot(atom.GetHybridization(), ATOM_FEATURES['hybridization']))
-    features.append(1 if atom.GetIsAromatic() else 0)
-    features.append(1 if atom.IsInRing() else 0)
-    return features
-
-
-def get_bond_features(bond):
-    """
-    Get bond/edge features for AttentiveFP.
-
-    Features (12 total):
-    - Bond type (one-hot, 4)
-    - Stereo (one-hot, 6)
-    - Is conjugated (1)
-    - Is in ring (1)
-    """
-    features = []
-    features.extend(one_hot(bond.GetBondType(), BOND_FEATURES['bond_type']))
-    features.extend(one_hot(int(bond.GetStereo()), BOND_FEATURES['stereo']))
-    features.append(1 if bond.GetIsConjugated() else 0)
-    features.append(1 if bond.IsInRing() else 0)
-    return features
+# Import from shared modules
+from src.models import AttentiveFPPredictor
+from src.constants import TOX21_TASKS, DATA_DIR, MODELS_DIR
+from src.utils import get_atom_features_afp as get_atom_features, get_bond_features
 
 
 def mol_to_graph_attentivefp(smiles, labels):
@@ -183,48 +100,6 @@ class MoleculeDatasetAttentiveFP(Dataset):
 
     def get(self, idx):
         return self.graphs[idx]
-
-
-class AttentiveFPPredictor(nn.Module):
-    """
-    AttentiveFP wrapper for multi-task toxicity prediction.
-    """
-
-    def __init__(
-        self,
-        in_channels,
-        hidden_channels=256,
-        out_channels=12,
-        edge_dim=12,
-        num_layers=3,
-        num_timesteps=3,
-        dropout=0.2
-    ):
-        super().__init__()
-
-        self.attentive_fp = AttentiveFP(
-            in_channels=in_channels,
-            hidden_channels=hidden_channels,
-            out_channels=hidden_channels,  # Output embedding
-            edge_dim=edge_dim,
-            num_layers=num_layers,
-            num_timesteps=num_timesteps,
-            dropout=dropout
-        )
-
-        # Multi-task prediction head
-        self.predictor = nn.Sequential(
-            nn.Linear(hidden_channels, hidden_channels),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_channels, out_channels)
-        )
-
-    def forward(self, x, edge_index, edge_attr, batch):
-        # Get graph-level embedding from AttentiveFP
-        embedding = self.attentive_fp(x, edge_index, edge_attr, batch)
-        # Predict toxicity
-        return self.predictor(embedding)
 
 
 def load_tox21_data():

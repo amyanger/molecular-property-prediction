@@ -3,6 +3,13 @@ Train molecular property prediction models on Tox21 dataset.
 Uses PyTorch with molecular fingerprints from RDKit.
 """
 
+import sys
+from pathlib import Path
+
+# Add project root to path for imports
+PROJECT_DIR = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_DIR))
+
 import argparse
 import torch
 import torch.nn as nn
@@ -10,26 +17,16 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import numpy as np
-from pathlib import Path
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score
 from rdkit import Chem
-from rdkit.Chem import AllChem, Descriptors
 from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator
 from tqdm import tqdm
 import json
 
-# Paths
-PROJECT_DIR = Path(__file__).parent.parent
-DATA_DIR = PROJECT_DIR / "data"
-MODELS_DIR = PROJECT_DIR / "models"
-
-# Tox21 task names
-TOX21_TASKS = [
-    "NR-AR", "NR-AR-LBD", "NR-AhR", "NR-Aromatase", "NR-ER",
-    "NR-ER-LBD", "NR-PPAR-gamma", "SR-ARE", "SR-ATAD5",
-    "SR-HSE", "SR-MMP", "SR-p53"
-]
+# Import from shared modules
+from src.models import MolecularPropertyPredictor
+from src.constants import TOX21_TASKS, DATA_DIR, MODELS_DIR
 
 
 class MoleculeDataset(Dataset):
@@ -64,39 +61,6 @@ class MoleculeDataset(Dataset):
         x = torch.FloatTensor(self.fingerprints[idx])
         y = torch.FloatTensor(self.labels[idx])
         return x, y
-
-
-class MolecularPropertyPredictor(nn.Module):
-    """
-    Neural network for predicting molecular properties.
-    Architecture: Fingerprint -> MLP with residual connections -> Multi-task output
-    """
-
-    def __init__(self, input_size=2048, hidden_sizes=[1024, 512, 256], num_tasks=12, dropout=0.3):
-        super().__init__()
-
-        layers = []
-        prev_size = input_size
-
-        # Build hidden layers with batch norm and dropout
-        for hidden_size in hidden_sizes:
-            layers.extend([
-                nn.Linear(prev_size, hidden_size),
-                nn.BatchNorm1d(hidden_size),
-                nn.ReLU(),
-                nn.Dropout(dropout)
-            ])
-            prev_size = hidden_size
-
-        self.encoder = nn.Sequential(*layers)
-
-        # Multi-task prediction head (one output per toxicity endpoint)
-        self.predictor = nn.Linear(hidden_sizes[-1], num_tasks)
-
-    def forward(self, x):
-        hidden = self.encoder(x)
-        logits = self.predictor(hidden)
-        return logits
 
 
 class TransformerPredictor(nn.Module):

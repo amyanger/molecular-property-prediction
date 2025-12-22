@@ -3,208 +3,27 @@ Ensemble all trained models: MLP, GCN, and AttentiveFP.
 Combines predictions with optimized weights for best performance.
 """
 
+import sys
+from pathlib import Path
+
+# Add project root to path for imports
+PROJECT_DIR = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_DIR))
+
 import json
 import torch
-import torch.nn as nn
 import numpy as np
 import pandas as pd
-from pathlib import Path
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score
 from rdkit import Chem
 from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator
 from tqdm import tqdm
 
-from torch_geometric.data import Data, Dataset
-from torch_geometric.loader import DataLoader
-from torch_geometric.nn import GCNConv, global_mean_pool, global_max_pool
-from torch_geometric.nn.models import AttentiveFP
-
-# Paths
-PROJECT_DIR = Path(__file__).parent.parent
-DATA_DIR = PROJECT_DIR / "data"
-MODELS_DIR = PROJECT_DIR / "models"
-
-TOX21_TASKS = [
-    "NR-AR", "NR-AR-LBD", "NR-AhR", "NR-Aromatase", "NR-ER",
-    "NR-ER-LBD", "NR-PPAR-gamma", "SR-ARE", "SR-ATAD5",
-    "SR-HSE", "SR-MMP", "SR-p53"
-]
-
-
-# ============== Model Definitions ==============
-
-class MolecularPropertyPredictor(nn.Module):
-    """MLP model (same as train.py)"""
-    def __init__(self, input_size=2048, hidden_sizes=[1024, 512, 256], num_tasks=12, dropout=0.3):
-        super().__init__()
-        layers = []
-        prev_size = input_size
-        for hidden_size in hidden_sizes:
-            layers.extend([
-                nn.Linear(prev_size, hidden_size),
-                nn.BatchNorm1d(hidden_size),
-                nn.ReLU(),
-                nn.Dropout(dropout)
-            ])
-            prev_size = hidden_size
-        self.encoder = nn.Sequential(*layers)
-        self.predictor = nn.Linear(hidden_sizes[-1], num_tasks)
-
-    def forward(self, x):
-        hidden = self.encoder(x)
-        return self.predictor(hidden)
-
-
-class GNN(nn.Module):
-    """GCN model (same as train_gnn.py)"""
-    def __init__(self, num_node_features=140, hidden_channels=256, num_layers=4, num_tasks=12, dropout=0.2):
-        super().__init__()
-        self.num_layers = num_layers
-        self.dropout = dropout
-        self.input_proj = nn.Linear(num_node_features, hidden_channels)
-        self.convs = nn.ModuleList()
-        self.batch_norms = nn.ModuleList()
-        for _ in range(num_layers):
-            self.convs.append(GCNConv(hidden_channels, hidden_channels))
-            self.batch_norms.append(nn.BatchNorm1d(hidden_channels))
-        self.output = nn.Sequential(
-            nn.Linear(hidden_channels * 2, hidden_channels),
-            nn.BatchNorm1d(hidden_channels),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_channels, hidden_channels // 2),
-            nn.BatchNorm1d(hidden_channels // 2),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_channels // 2, num_tasks)
-        )
-
-    def forward(self, x, edge_index, batch):
-        x = self.input_proj(x)
-        x = torch.relu(x)
-        for i in range(self.num_layers):
-            x_res = x
-            x = self.convs[i](x, edge_index)
-            x = self.batch_norms[i](x)
-            x = torch.relu(x)
-            x = torch.dropout(x, p=self.dropout, train=self.training)
-            x = x + x_res
-        x_mean = global_mean_pool(x, batch)
-        x_max = global_max_pool(x, batch)
-        x = torch.cat([x_mean, x_max], dim=1)
-        return self.output(x)
-
-
-class AttentiveFPPredictor(nn.Module):
-    """AttentiveFP model (same as train_attentivefp.py)"""
-    def __init__(self, in_channels, hidden_channels=256, out_channels=12, edge_dim=12,
-                 num_layers=3, num_timesteps=3, dropout=0.2):
-        super().__init__()
-        self.attentive_fp = AttentiveFP(
-            in_channels=in_channels,
-            hidden_channels=hidden_channels,
-            out_channels=hidden_channels,
-            edge_dim=edge_dim,
-            num_layers=num_layers,
-            num_timesteps=num_timesteps,
-            dropout=dropout
-        )
-        self.predictor = nn.Sequential(
-            nn.Linear(hidden_channels, hidden_channels),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_channels, out_channels)
-        )
-
-    def forward(self, x, edge_index, edge_attr, batch):
-        embedding = self.attentive_fp(x, edge_index, edge_attr, batch)
-        return self.predictor(embedding)
-
-
-# ============== Feature Extraction ==============
-
-ATOM_FEATURES_GCN = {
-    'atomic_num': list(range(1, 119)),
-    'degree': [0, 1, 2, 3, 4, 5],
-    'formal_charge': [-2, -1, 0, 1, 2],
-    'hybridization': [
-        Chem.rdchem.HybridizationType.SP,
-        Chem.rdchem.HybridizationType.SP2,
-        Chem.rdchem.HybridizationType.SP3,
-        Chem.rdchem.HybridizationType.SP3D,
-        Chem.rdchem.HybridizationType.SP3D2
-    ],
-    'is_aromatic': [False, True],
-    'num_hs': [0, 1, 2, 3, 4],
-}
-
-ATOM_FEATURES_AFP = {
-    'atomic_num': list(range(1, 119)),
-    'degree': [0, 1, 2, 3, 4, 5, 6],
-    'formal_charge': [-2, -1, 0, 1, 2, 3],
-    'chiral_tag': [0, 1, 2, 3],
-    'num_hs': [0, 1, 2, 3, 4],
-    'hybridization': [
-        Chem.rdchem.HybridizationType.SP,
-        Chem.rdchem.HybridizationType.SP2,
-        Chem.rdchem.HybridizationType.SP3,
-        Chem.rdchem.HybridizationType.SP3D,
-        Chem.rdchem.HybridizationType.SP3D2,
-        Chem.rdchem.HybridizationType.UNSPECIFIED,
-    ],
-}
-
-BOND_FEATURES = {
-    'bond_type': [
-        Chem.rdchem.BondType.SINGLE,
-        Chem.rdchem.BondType.DOUBLE,
-        Chem.rdchem.BondType.TRIPLE,
-        Chem.rdchem.BondType.AROMATIC,
-    ],
-    'stereo': [0, 1, 2, 3, 4, 5],
-    'is_conjugated': [False, True],
-}
-
-
-def one_hot(value, choices):
-    encoding = [0] * len(choices)
-    if value in choices:
-        encoding[choices.index(value)] = 1
-    return encoding
-
-
-def get_atom_features_gcn(atom):
-    features = []
-    features.extend(one_hot(atom.GetAtomicNum(), ATOM_FEATURES_GCN['atomic_num']))
-    features.extend(one_hot(atom.GetDegree(), ATOM_FEATURES_GCN['degree']))
-    features.extend(one_hot(atom.GetFormalCharge(), ATOM_FEATURES_GCN['formal_charge']))
-    features.extend(one_hot(atom.GetHybridization(), ATOM_FEATURES_GCN['hybridization']))
-    features.append(1 if atom.GetIsAromatic() else 0)
-    features.extend(one_hot(atom.GetTotalNumHs(), ATOM_FEATURES_GCN['num_hs']))
-    return features
-
-
-def get_atom_features_afp(atom):
-    features = []
-    features.extend(one_hot(atom.GetAtomicNum(), ATOM_FEATURES_AFP['atomic_num']))
-    features.extend(one_hot(atom.GetDegree(), ATOM_FEATURES_AFP['degree']))
-    features.extend(one_hot(atom.GetFormalCharge(), ATOM_FEATURES_AFP['formal_charge']))
-    features.extend(one_hot(int(atom.GetChiralTag()), ATOM_FEATURES_AFP['chiral_tag']))
-    features.extend(one_hot(atom.GetTotalNumHs(), ATOM_FEATURES_AFP['num_hs']))
-    features.extend(one_hot(atom.GetHybridization(), ATOM_FEATURES_AFP['hybridization']))
-    features.append(1 if atom.GetIsAromatic() else 0)
-    features.append(1 if atom.IsInRing() else 0)
-    return features
-
-
-def get_bond_features(bond):
-    features = []
-    features.extend(one_hot(bond.GetBondType(), BOND_FEATURES['bond_type']))
-    features.extend(one_hot(int(bond.GetStereo()), BOND_FEATURES['stereo']))
-    features.append(1 if bond.GetIsConjugated() else 0)
-    features.append(1 if bond.IsInRing() else 0)
-    return features
+# Import from shared modules
+from src.models import MolecularPropertyPredictor, GNN, AttentiveFPPredictor
+from src.constants import TOX21_TASKS, DATA_DIR, MODELS_DIR
+from src.utils import get_atom_features_gcn, get_atom_features_afp, get_bond_features
 
 
 # ============== Data Loading ==============
