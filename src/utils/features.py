@@ -2,7 +2,7 @@
 
 from rdkit import Chem
 
-# Atom features for GCN model (140 dimensions)
+# Atom features for GCN model (141 dimensions - added is_in_ring)
 ATOM_FEATURES_GCN = {
     'atomic_num': list(range(1, 119)),  # 118 elements
     'degree': [0, 1, 2, 3, 4, 5],
@@ -59,13 +59,14 @@ def get_atom_features_gcn(atom):
     """
     Get feature vector for an atom (GCN model).
 
-    Features (140 dimensions):
+    Features (141 dimensions):
     - Atomic number (one-hot, 118)
     - Degree (one-hot, 6)
     - Formal charge (one-hot, 5)
     - Hybridization (one-hot, 5)
     - Is aromatic (1)
     - Number of Hs (one-hot, 5)
+    - Is in ring (1)
     """
     features = []
     features.extend(one_hot(atom.GetAtomicNum(), ATOM_FEATURES_GCN['atomic_num']))
@@ -74,6 +75,7 @@ def get_atom_features_gcn(atom):
     features.extend(one_hot(atom.GetHybridization(), ATOM_FEATURES_GCN['hybridization']))
     features.append(1 if atom.GetIsAromatic() else 0)
     features.extend(one_hot(atom.GetTotalNumHs(), ATOM_FEATURES_GCN['num_hs']))
+    features.append(1 if atom.IsInRing() else 0)
     return features
 
 

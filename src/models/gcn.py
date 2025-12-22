@@ -26,7 +26,7 @@ class GNN(nn.Module):
 
     def __init__(
         self,
-        num_node_features=140,
+        num_node_features=141,
         hidden_channels=256,
         num_layers=4,
         num_tasks=12,

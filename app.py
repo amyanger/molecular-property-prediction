@@ -43,7 +43,7 @@ def load_models():
 
     # GCN
     try:
-        gcn = GNN(num_node_features=140, hidden_channels=256, num_layers=4, num_tasks=12, dropout=0.2)
+        gcn = GNN(num_node_features=141, hidden_channels=256, num_layers=4, num_tasks=12, dropout=0.2)
         checkpoint = torch.load(MODELS_DIR / 'best_gnn_model.pt', weights_only=False, map_location=device)
         gcn.load_state_dict(checkpoint['model_state_dict'])
         gcn.to(device).eval()
@@ -196,6 +196,29 @@ st.markdown("""
 st.markdown('<div class="main-header">🧪 Molecular Toxicity Predictor</div>', unsafe_allow_html=True)
 st.markdown("**Deep learning models for predicting molecular toxicity across 12 biological endpoints**")
 
+# What is this app? - Layman explanation
+with st.expander("ℹ️ What does this app do? (Click to learn more)"):
+    st.markdown("""
+    ### Understanding Molecular Toxicity Prediction
+
+    This app uses **artificial intelligence** to predict whether a chemical compound might be harmful to living cells or organisms.
+
+    **How does it work?**
+    - You give the app a molecule (using a text code called SMILES)
+    - The AI models analyze the molecule's structure
+    - The app predicts how likely the molecule is to cause harm in 12 different ways
+
+    **Why is this useful?**
+    - Drug companies can quickly screen chemicals before expensive lab tests
+    - Researchers can identify potentially dangerous compounds early
+    - It helps prioritize which chemicals need more safety testing
+
+    **What is a SMILES string?**
+    - SMILES is a way to write a molecule's structure as text
+    - For example, `CCO` represents ethanol (drinking alcohol)
+    - `CC(=O)OC1=CC=CC=C1C(=O)O` represents aspirin
+    """)
+
 # Sidebar
 st.sidebar.title("Navigation")
 page = st.sidebar.radio("", ["🏠 Overview", "🔬 Predict Toxicity", "📊 Model Comparison", "📈 Training History"])
@@ -210,16 +233,26 @@ models, device = load_models()
 if page == "🏠 Overview":
     st.header("Project Overview")
 
+    st.info("""
+    **What you're looking at:** This page shows how well our AI models perform at predicting molecular toxicity.
+    The main number to look at is **AUC** (Area Under Curve) - a score from 0 to 1 where **higher is better**.
+    An AUC of 0.5 means random guessing, while 1.0 would be perfect prediction. Our models achieve ~0.87, which is quite good!
+    """)
+
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        st.metric("Best Model AUC", "0.857", "Ensemble")
+        st.metric("Best Model AUC", "0.867", "Ensemble",
+                 help="Our best model correctly ranks toxic vs non-toxic molecules 87% of the time")
     with col2:
-        st.metric("Models Trained", "3", "MLP, GCN, AttentiveFP")
+        st.metric("Models Trained", "3", "MLP, GCN, AttentiveFP",
+                 help="Three different AI architectures combined for better accuracy")
     with col3:
-        st.metric("Toxicity Endpoints", "12", "Tox21 Dataset")
+        st.metric("Toxicity Endpoints", "12", "Tox21 Dataset",
+                 help="12 different biological tests measuring various types of toxicity")
     with col4:
-        st.metric("Dataset Size", "7,831", "molecules")
+        st.metric("Dataset Size", "7,831", "molecules",
+                 help="Number of molecules used to train and test the models")
 
     st.markdown("---")
 
@@ -248,6 +281,11 @@ if page == "🏠 Overview":
 
     # Task descriptions
     st.subheader("Toxicity Endpoints")
+    st.markdown("""
+    **What are these endpoints?** Each endpoint represents a different way a chemical can harm biological systems.
+    These are based on the **Tox21** dataset - a real-world dataset used by the EPA, FDA, and NIH to screen chemicals.
+    Think of each endpoint as a different "test" the molecule goes through.
+    """)
     task_df = pd.DataFrame([
         {'Endpoint': task, 'Description': desc}
         for task, desc in TASK_DESCRIPTIONS.items()
@@ -257,6 +295,16 @@ if page == "🏠 Overview":
 
 elif page == "🔬 Predict Toxicity":
     st.header("Predict Molecular Toxicity")
+
+    st.info("""
+    **How to use this page:**
+    1. Select an example molecule from the dropdown OR enter your own SMILES string
+    2. Click "Predict Toxicity" to run the AI analysis
+    3. View the results showing the likelihood of toxicity for each biological test
+
+    **Understanding the results:** Probabilities closer to 100% mean the molecule is more likely to be toxic for that endpoint.
+    The red dashed line at 50% is the threshold - anything above this is flagged as potentially toxic.
+    """)
 
     col1, col2 = st.columns([1, 1])
 
@@ -297,24 +345,35 @@ elif page == "🔬 Predict Toxicity":
             if avg_tox > 0.5:
                 risk_class = "risk-high"
                 risk_label = "HIGH RISK"
+                risk_explanation = "This molecule shows concerning toxicity signals across multiple tests. Further investigation recommended."
             elif avg_tox > 0.3:
                 risk_class = "risk-medium"
                 risk_label = "MODERATE RISK"
+                risk_explanation = "This molecule shows some potential toxicity signals. May warrant additional testing."
             else:
                 risk_class = "risk-low"
                 risk_label = "LOW RISK"
+                risk_explanation = "This molecule shows low toxicity signals across most tests. Generally favorable safety profile."
 
             col1, col2, col3 = st.columns(3)
             with col1:
-                st.metric("Overall Toxicity Score", f"{avg_tox:.1%}")
+                st.metric("Overall Toxicity Score", f"{avg_tox:.1%}",
+                         help="Average probability of toxicity across all 12 endpoints. Lower is safer.")
             with col2:
                 st.markdown(f"**Risk Level:** <span class='{risk_class}'>{risk_label}</span>",
                            unsafe_allow_html=True)
             with col3:
-                st.metric("Endpoints Flagged", f"{(ensemble_pred > 0.5).sum()}/12")
+                st.metric("Endpoints Flagged", f"{(ensemble_pred > 0.5).sum()}/12",
+                         help="Number of toxicity tests where the molecule scored above 50% probability.")
+
+            st.caption(f"💡 {risk_explanation}")
 
             # Per-task predictions
             st.subheader("Per-Endpoint Predictions")
+            st.markdown("""
+            Each bar shows the probability (0-100%) that the molecule is toxic for that specific biological test.
+            **Green = safer**, **Red = more concerning**. The dashed red line marks the 50% threshold.
+            """)
 
             pred_df = pd.DataFrame({
                 'Endpoint': TOX21_TASKS,
@@ -334,6 +393,11 @@ elif page == "🔬 Predict Toxicity":
             # Model agreement
             if len(individual_preds) > 1:
                 st.subheader("Model Agreement")
+                st.markdown("""
+                This table shows how each AI model voted. When models **agree** (similar percentages),
+                we have more confidence in the prediction. Large disagreements suggest uncertainty.
+                The **Ensemble** column is the weighted average of all models - our best overall prediction.
+                """)
                 agreement_data = []
                 for task_idx, task in enumerate(TOX21_TASKS):
                     row = {'Endpoint': task}
@@ -353,11 +417,25 @@ elif page == "🔬 Predict Toxicity":
 elif page == "📊 Model Comparison":
     st.header("Model Comparison")
 
+    st.info("""
+    **What you're looking at:** This page compares the performance of our different AI models.
+
+    **The models explained:**
+    - **MLP (Multi-Layer Perceptron):** A simple neural network that looks at molecular "fingerprints" - numeric codes representing the molecule's structure
+    - **GCN (Graph Convolutional Network):** Treats the molecule as a network of connected atoms and learns patterns from the connections
+    - **AttentiveFP:** An advanced model that "pays attention" to the most important parts of the molecule
+    - **Ensemble:** Combines all three models' predictions for better accuracy (like asking multiple experts)
+
+    **What is AUC-ROC?** A score from 0.5 to 1.0 measuring how well the model distinguishes toxic from non-toxic molecules.
+    Higher is better. 0.5 = random guessing, 1.0 = perfect.
+    """)
+
     if not results:
         st.warning("No results found. Train models first.")
     else:
         # Per-task comparison
         st.subheader("Per-Task Performance")
+        st.markdown("This chart shows how well each model performs on each of the 12 toxicity tests. Taller bars = better performance.")
 
         task_data = []
         for task in TOX21_TASKS:
@@ -393,6 +471,10 @@ elif page == "📊 Model Comparison":
 
         # Summary table
         st.subheader("Summary Statistics")
+        st.markdown("""
+        This table ranks models by overall performance. **Best Task** shows where each model excels,
+        while **Worst Task** shows its weakest area. Some toxicity tests are harder to predict than others.
+        """)
         summary_data = []
         for model_name, data in results.items():
             if model_name == 'Ensemble':
@@ -416,6 +498,10 @@ elif page == "📊 Model Comparison":
         # Ensemble weights
         if 'Ensemble' in results and 'weights' in results['Ensemble']:
             st.subheader("Ensemble Weights")
+            st.markdown("""
+            The ensemble combines predictions from all models, but not equally. Better-performing models
+            get more "voting power". This pie chart shows how much each model contributes to the final prediction.
+            """)
             weights = results['Ensemble']['weights']
             fig = px.pie(
                 values=list(weights.values()),
@@ -428,6 +514,18 @@ elif page == "📊 Model Comparison":
 elif page == "📈 Training History":
     st.header("Training History")
 
+    st.info("""
+    **What you're looking at:** This page shows how the models learned during training.
+
+    **Training Loss:** How wrong the model's predictions are. Lower is better.
+    A decreasing line means the model is learning and improving.
+
+    **Validation AUC:** How well the model performs on data it hasn't seen before.
+    An increasing line means the model is getting better at generalizing.
+    If this starts dropping while training loss keeps decreasing, the model is "overfitting"
+    (memorizing training data instead of learning general patterns).
+    """)
+
     # Training curves
     models_with_history = {name: data for name, data in results.items()
                           if 'history' in data}
@@ -436,6 +534,7 @@ elif page == "📈 Training History":
         st.warning("No training history found.")
     else:
         st.subheader("Training Loss")
+        st.caption("Each 'epoch' is one complete pass through the training data. Watch how the loss decreases as models learn.")
         fig = go.Figure()
         for model_name, data in models_with_history.items():
             if 'train_loss' in data['history']:
@@ -448,6 +547,7 @@ elif page == "📈 Training History":
         st.plotly_chart(fig, use_container_width=True)
 
         st.subheader("Validation AUC")
+        st.caption("This shows model performance on held-out test data. Higher and more stable is better.")
         fig = go.Figure()
         for model_name, data in models_with_history.items():
             if 'val_auc' in data['history']:

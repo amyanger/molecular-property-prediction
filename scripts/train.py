@@ -136,6 +136,25 @@ def compute_metrics(y_true, y_pred, mask):
     return aucs
 
 
+def compute_pos_weights(labels):
+    """Compute positive class weights for imbalanced multi-label classification."""
+    pos_weights = []
+    for i in range(labels.shape[1]):
+        valid_mask = labels[:, i] != -1
+        valid_labels = labels[valid_mask, i]
+        if len(valid_labels) > 0:
+            pos_count = (valid_labels == 1).sum()
+            neg_count = (valid_labels == 0).sum()
+            if pos_count > 0:
+                weight = neg_count / pos_count
+            else:
+                weight = 1.0
+        else:
+            weight = 1.0
+        pos_weights.append(weight)
+    return torch.tensor(pos_weights, dtype=torch.float)
+
+
 def train_epoch(model, dataloader, optimizer, criterion, device):
     """Train for one epoch."""
     model.train()
@@ -156,6 +175,7 @@ def train_epoch(model, dataloader, optimizer, criterion, device):
         loss = (loss * mask).sum() / (mask.sum() + 1e-8)
 
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
 
         total_loss += loss.item()
@@ -259,14 +279,20 @@ def main(args):
     print(f"\nModel: {args.model}")
     print(f"Parameters: {sum(p.numel() for p in model.parameters()):,}")
 
+    # Compute class weights for imbalanced data
+    pos_weights = compute_pos_weights(train_dataset.labels).to(device)
+    print(f"Class weights (pos/neg ratio): min={pos_weights.min():.2f}, max={pos_weights.max():.2f}")
+
     # Training setup
     optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
-    criterion = nn.BCEWithLogitsLoss(reduction='none')
+    criterion = nn.BCEWithLogitsLoss(reduction='none', pos_weight=pos_weights)
 
     # Training loop
     best_val_auc = 0
     history = {'train_loss': [], 'val_auc': [], 'test_auc': []}
+    patience = 10
+    patience_counter = 0
 
     print("\nStarting training...")
     for epoch in range(args.epochs):
@@ -284,6 +310,7 @@ def main(args):
         # Save best model
         if val_auc > best_val_auc:
             best_val_auc = val_auc
+            patience_counter = 0
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
@@ -291,6 +318,11 @@ def main(args):
                 'val_auc': val_auc,
             }, MODELS_DIR / 'best_model.pt')
             print(f"  -> New best model saved!")
+        else:
+            patience_counter += 1
+            if patience_counter >= patience:
+                print(f"Early stopping at epoch {epoch+1}")
+                break
 
     # Final evaluation
     print("\n" + "=" * 60)
@@ -332,7 +364,7 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=50, help='Number of epochs')
     parser.add_argument('--batch_size', type=int, default=64, help='Batch size')
     parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate')
-    parser.add_argument('--dropout', type=float, default=0.3, help='Dropout rate')
+    parser.add_argument('--dropout', type=float, default=0.4, help='Dropout rate')
     parser.add_argument('--fingerprint_size', type=int, default=2048, help='Morgan fingerprint size')
     parser.add_argument('--cpu', action='store_true', help='Force CPU training')
 

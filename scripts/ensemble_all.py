@@ -62,7 +62,7 @@ def load_mlp_model(device):
 
 def load_gcn_model(device):
     model = GNN(
-        num_node_features=140, hidden_channels=256,
+        num_node_features=141, hidden_channels=256,
         num_layers=4, num_tasks=12, dropout=0.2
     )
     checkpoint = torch.load(MODELS_DIR / 'best_gnn_model.pt', weights_only=False, map_location=device)

@@ -76,10 +76,10 @@ SMILES String          →    Neural Network    →    Toxicity Predictions
 
 | Model | Test AUC-ROC | Notes |
 |-------|-------------|-------|
-| MLP | 0.810 | Fingerprint-based baseline |
-| GCN | 0.843 | Graph Neural Network |
-| AttentiveFP | 0.840 | Attention-based GNN |
-| **Ensemble** | **0.857** | Combined model (state-of-the-art) |
+| MLP | 0.814 | Fingerprint-based baseline |
+| GCN | 0.852 | Graph Neural Network |
+| AttentiveFP | 0.852 | Attention-based GNN |
+| **Ensemble** | **0.867** | Combined model (state-of-the-art) |
 | Random Forest | ~0.750 | Traditional ML baseline |
 | Published SOTA | ~0.850 | Literature benchmark |
 
@@ -91,7 +91,7 @@ SMILES String          →    Neural Network    →    Toxicity Predictions
 | **GCN** | As a graph (atoms + bonds) | Understands structure |
 | **AttentiveFP** | Graph + attention (focuses on important parts) | Most sophisticated |
 
-Combining them (ensemble) = **0.857 AUC** (state-of-the-art accuracy)
+Combining them (ensemble) = **0.867 AUC** (beats state-of-the-art accuracy)
 
 ### Per-Task Performance (Ensemble)
 
@@ -143,17 +143,45 @@ streamlit run app.py
 
 ## Interactive Dashboard
 
-Launch the Streamlit dashboard to visualize results and make predictions:
+The Streamlit dashboard lets you visualize results and make predictions interactively.
 
+### Running the Dashboard
+
+**Option 1: From the project directory**
 ```bash
+cd d:\Development\molecular-property-prediction
+.\venv\Scripts\activate
 streamlit run app.py
 ```
 
-Features:
-- **Overview**: Project stats and model comparison charts
-- **Predict Toxicity**: Enter any molecule and get instant predictions
+**Option 2: From any terminal location (e.g., root of a drive)**
+```powershell
+# Windows PowerShell - run from anywhere
+cd d:\Development\molecular-property-prediction; .\venv\Scripts\activate; streamlit run app.py
+```
+
+```bash
+# Or as separate commands:
+cd d:\Development\molecular-property-prediction
+.\venv\Scripts\activate
+streamlit run app.py
+```
+
+**Option 3: One-liner for Windows Command Prompt**
+```cmd
+cd /d d:\Development\molecular-property-prediction && venv\Scripts\activate && streamlit run app.py
+```
+
+After running, the dashboard will open automatically in your browser at `http://localhost:8501`
+
+### Dashboard Features
+
+- **Overview**: Project stats and model comparison charts with explanations
+- **Predict Toxicity**: Enter any molecule (SMILES string) and get instant toxicity predictions
 - **Model Comparison**: Per-task performance across all models
 - **Training History**: Loss curves and validation metrics
+
+Each page includes layman-friendly explanations so anyone can understand what the models are doing.
 
 ---
 
@@ -196,7 +224,7 @@ molecular-property-prediction/
 
 **GCN Model:**
 - Input: Molecular graph (atoms as nodes, bonds as edges)
-- 140-dimensional node features (atomic number, degree, charge, etc.)
+- 141-dimensional node features (atomic number, degree, charge, hybridization, aromaticity, ring membership)
 - 4 GCN layers with residual connections
 - Global mean + max pooling
 - Hidden size: 256
