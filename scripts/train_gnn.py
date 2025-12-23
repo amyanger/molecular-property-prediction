@@ -31,6 +31,62 @@ from src.constants import TOX21_TASKS, DATA_DIR, MODELS_DIR
 from src.utils import get_atom_features_gcn as get_atom_features
 
 
+def load_pretrained_weights(model, pretrained_path, device):
+    """
+    Load pre-trained encoder weights into the GNN model.
+
+    The pre-trained weights come from pretrain_gnn.py and include:
+    - input_proj (linear projection layer)
+    - convs (GCN convolution layers)
+    - batch_norms (batch normalization layers)
+
+    The output head is NOT loaded (it's task-specific).
+
+    Args:
+        model: GNN model to load weights into
+        pretrained_path: Path to pretrained_gnn_encoder.pt
+        device: torch device
+
+    Returns:
+        model with loaded weights
+    """
+    print(f"\nLoading pre-trained weights from: {pretrained_path}")
+
+    checkpoint = torch.load(pretrained_path, map_location=device, weights_only=False)
+    encoder_state = checkpoint['encoder_state_dict']
+    config = checkpoint.get('config', {})
+
+    print(f"Pre-training config: {config}")
+
+    # Get current model state
+    model_state = model.state_dict()
+
+    # Find matching keys and load them
+    loaded_keys = []
+    skipped_keys = []
+
+    for key, value in encoder_state.items():
+        if key in model_state:
+            if value.shape == model_state[key].shape:
+                model_state[key] = value
+                loaded_keys.append(key)
+            else:
+                skipped_keys.append(f"{key} (shape mismatch: {value.shape} vs {model_state[key].shape})")
+        else:
+            skipped_keys.append(f"{key} (not in model)")
+
+    # Load the updated state
+    model.load_state_dict(model_state)
+
+    print(f"Loaded {len(loaded_keys)}/{len(model_state)} layers from pre-trained model")
+    if loaded_keys:
+        print(f"  Loaded: {', '.join(loaded_keys[:5])}{'...' if len(loaded_keys) > 5 else ''}")
+    if skipped_keys:
+        print(f"  Skipped: {', '.join(skipped_keys[:3])}{'...' if len(skipped_keys) > 3 else ''}")
+
+    return model
+
+
 def mol_to_graph(smiles, labels):
     """
     Convert a molecule (SMILES) to a PyG graph Data object.
@@ -266,6 +322,25 @@ def main(args):
     print(f"Model: GNN ({args.conv_type.upper()})")
     print(f"Parameters: {sum(p.numel() for p in model.parameters()):,}")
 
+    # Load pre-trained weights if specified
+    if args.pretrained:
+        pretrained_path = args.pretrained_path or (MODELS_DIR / 'pretrained_gnn_encoder.pt')
+        if Path(pretrained_path).exists():
+            model = load_pretrained_weights(model, pretrained_path, device)
+
+            # Optionally freeze encoder layers
+            if args.freeze_encoder:
+                print("Freezing encoder layers (training only output head)")
+                for name, param in model.named_parameters():
+                    if not name.startswith('output'):
+                        param.requires_grad = False
+
+                trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+                print(f"Trainable parameters: {trainable:,}")
+        else:
+            print(f"Warning: Pre-trained weights not found at {pretrained_path}")
+            print("Training from scratch. Run pretrain_gnn.py first for pre-training.")
+
     # Compute class weights for imbalanced data
     pos_weights = compute_pos_weights(train_lab).to(device)
     print(f"Class weights (pos/neg ratio): min={pos_weights.min():.2f}, max={pos_weights.max():.2f}")
@@ -371,6 +446,12 @@ if __name__ == '__main__':
     parser.add_argument('--conv_type', type=str, default='gcn', choices=['gcn', 'gat'],
                         help='Type of graph convolution')
     parser.add_argument('--cpu', action='store_true', help='Force CPU training')
+    parser.add_argument('--pretrained', action='store_true',
+                        help='Load pre-trained encoder weights from pretrain_gnn.py')
+    parser.add_argument('--pretrained_path', type=str, default=None,
+                        help='Custom path to pre-trained weights (default: models/pretrained_gnn_encoder.pt)')
+    parser.add_argument('--freeze_encoder', action='store_true',
+                        help='Freeze encoder layers during fine-tuning (train only output head)')
 
     args = parser.parse_args()
     main(args)

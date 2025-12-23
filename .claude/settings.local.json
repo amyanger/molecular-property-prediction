@@ -18,7 +18,10 @@
       "Bash(python -m py_compile:*)",
       "Bash(python:*)",
       "Bash(venvScriptspython -c \"from src.models import MolecularPropertyPredictor, GNN, AttentiveFPPredictor; from src.constants import TOX21_TASKS, MODELS_DIR; from src.utils import get_atom_features_gcn, get_atom_features_afp, get_bond_features; print\\(''All imports successful!''\\)\")",
-      "Bash(\"venv/Scripts/python.exe\" -c:*)"
+      "Bash(\"venv/Scripts/python.exe\" -c:*)",
+      "Bash(pip install:*)",
+      "Bash(pip uninstall:*)",
+      "Bash(cat:*)"
     ]
   }
 }
