@@ -18,6 +18,13 @@ from .config import (
     get_model_config,
 )
 
+from .logger import (
+    setup_logger,
+    get_logger,
+    get_default_logger,
+    TrainingLogger,
+)
+
 __all__ = [
     # Feature extraction
     'one_hot',
@@ -33,4 +40,9 @@ __all__ = [
     'get_config',
     'get_training_config',
     'get_model_config',
+    # Logging
+    'setup_logger',
+    'get_logger',
+    'get_default_logger',
+    'TrainingLogger',
 ]
