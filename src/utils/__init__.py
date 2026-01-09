@@ -25,6 +25,18 @@ from .logger import (
     TrainingLogger,
 )
 
+from .smiles import (
+    validate_smiles,
+    canonicalize_smiles,
+    standardize_smiles,
+    get_molecule_info,
+    batch_validate_smiles,
+    smiles_to_inchi,
+    smiles_to_inchikey,
+    calculate_drug_likeness,
+    MoleculeInfo,
+)
+
 __all__ = [
     # Feature extraction
     'one_hot',
@@ -45,4 +57,14 @@ __all__ = [
     'get_logger',
     'get_default_logger',
     'TrainingLogger',
+    # SMILES utilities
+    'validate_smiles',
+    'canonicalize_smiles',
+    'standardize_smiles',
+    'get_molecule_info',
+    'batch_validate_smiles',
+    'smiles_to_inchi',
+    'smiles_to_inchikey',
+    'calculate_drug_likeness',
+    'MoleculeInfo',
 ]
