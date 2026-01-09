@@ -1,0 +1,176 @@
+{
+  "description": "Example molecules for testing and demonstration",
+  "categories": {
+    "drugs": {
+      "description": "Common pharmaceutical compounds",
+      "molecules": [
+        {
+          "name": "Aspirin",
+          "smiles": "CC(=O)OC1=CC=CC=C1C(=O)O",
+          "description": "Pain reliever and anti-inflammatory",
+          "category": "NSAID"
+        },
+        {
+          "name": "Acetaminophen",
+          "smiles": "CC(=O)NC1=CC=C(C=C1)O",
+          "description": "Pain reliever and fever reducer",
+          "category": "Analgesic"
+        },
+        {
+          "name": "Ibuprofen",
+          "smiles": "CC(C)CC1=CC=C(C=C1)C(C)C(=O)O",
+          "description": "Anti-inflammatory drug",
+          "category": "NSAID"
+        },
+        {
+          "name": "Caffeine",
+          "smiles": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+          "description": "Stimulant found in coffee and tea",
+          "category": "Stimulant"
+        },
+        {
+          "name": "Penicillin G",
+          "smiles": "CC1(C)SC2C(NC(=O)CC3=CC=CC=C3)C(=O)N2C1C(=O)O",
+          "description": "Antibiotic medication",
+          "category": "Antibiotic"
+        },
+        {
+          "name": "Metformin",
+          "smiles": "CN(C)C(=N)NC(=N)N",
+          "description": "Diabetes medication",
+          "category": "Antidiabetic"
+        }
+      ]
+    },
+    "toxic_compounds": {
+      "description": "Known toxic substances",
+      "molecules": [
+        {
+          "name": "DDT",
+          "smiles": "ClC(Cl)=C(C1=CC=C(Cl)C=C1)C2=CC=C(Cl)C=C2",
+          "description": "Pesticide, persistent environmental pollutant",
+          "toxicity": "High"
+        },
+        {
+          "name": "Benzene",
+          "smiles": "C1=CC=CC=C1",
+          "description": "Industrial solvent, carcinogen",
+          "toxicity": "High"
+        },
+        {
+          "name": "Formaldehyde",
+          "smiles": "C=O",
+          "description": "Preservative, carcinogen",
+          "toxicity": "High"
+        },
+        {
+          "name": "Carbon Tetrachloride",
+          "smiles": "ClC(Cl)(Cl)Cl",
+          "description": "Solvent, liver toxin",
+          "toxicity": "High"
+        },
+        {
+          "name": "Arsenic Trioxide",
+          "smiles": "[As]=[O]",
+          "description": "Poison, used in cancer treatment",
+          "toxicity": "Very High"
+        }
+      ]
+    },
+    "natural_compounds": {
+      "description": "Natural products and vitamins",
+      "molecules": [
+        {
+          "name": "Vitamin C",
+          "smiles": "OCC(O)C1OC(=O)C(O)=C1O",
+          "description": "Essential vitamin, antioxidant",
+          "source": "Citrus fruits"
+        },
+        {
+          "name": "Nicotine",
+          "smiles": "CN1CCCC1C2=CN=CC=C2",
+          "description": "Alkaloid from tobacco",
+          "source": "Tobacco plant"
+        },
+        {
+          "name": "Capsaicin",
+          "smiles": "COC1=CC(CNC(=O)CCCC\\C=C\\C(C)C)=CC=C1O",
+          "description": "Compound that makes peppers spicy",
+          "source": "Chili peppers"
+        },
+        {
+          "name": "Curcumin",
+          "smiles": "COC1=CC(\\C=C\\C(=O)CC(=O)\\C=C\\C2=CC(OC)=C(O)C=C2)=CC=C1O",
+          "description": "Anti-inflammatory compound",
+          "source": "Turmeric"
+        },
+        {
+          "name": "Quercetin",
+          "smiles": "OC1=CC(O)=C2C(=O)C(O)=C(OC2=C1)C3=CC(O)=C(O)C=C3",
+          "description": "Flavonoid antioxidant",
+          "source": "Various fruits and vegetables"
+        }
+      ]
+    },
+    "simple_molecules": {
+      "description": "Simple organic molecules for testing",
+      "molecules": [
+        {
+          "name": "Ethanol",
+          "smiles": "CCO",
+          "description": "Alcohol"
+        },
+        {
+          "name": "Methanol",
+          "smiles": "CO",
+          "description": "Simple alcohol (toxic)"
+        },
+        {
+          "name": "Acetic Acid",
+          "smiles": "CC(=O)O",
+          "description": "Vinegar"
+        },
+        {
+          "name": "Glucose",
+          "smiles": "OCC1OC(O)C(O)C(O)C1O",
+          "description": "Sugar"
+        },
+        {
+          "name": "Toluene",
+          "smiles": "CC1=CC=CC=C1",
+          "description": "Solvent"
+        },
+        {
+          "name": "Phenol",
+          "smiles": "OC1=CC=CC=C1",
+          "description": "Aromatic alcohol"
+        },
+        {
+          "name": "Aniline",
+          "smiles": "NC1=CC=CC=C1",
+          "description": "Aromatic amine"
+        },
+        {
+          "name": "Cyclohexane",
+          "smiles": "C1CCCCC1",
+          "description": "Cyclic hydrocarbon"
+        }
+      ]
+    }
+  },
+  "test_set": {
+    "description": "Diverse set of molecules for comprehensive testing",
+    "molecules": [
+      "CC(=O)OC1=CC=CC=C1C(=O)O",
+      "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+      "CC(C)CC1=CC=C(C=C1)C(C)C(=O)O",
+      "CCO",
+      "C1=CC=CC=C1",
+      "CC(=O)NC1=CC=C(C=C1)O",
+      "OCC(O)C1OC(=O)C(O)=C1O",
+      "CN1CCCC1C2=CN=CC=C2",
+      "ClC(Cl)=C(C1=CC=C(Cl)C=C1)C2=CC=C(Cl)C=C2",
+      "C=O"
+    ]
+  }
+}

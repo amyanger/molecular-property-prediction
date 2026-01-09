@@ -35,6 +35,7 @@ env/
 # Data Files (too large for git)
 # =============================================================================
 data/
+!data/example_molecules.json
 *.csv
 *.csv.gz
 *.sdf
