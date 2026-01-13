@@ -14,9 +14,13 @@ sys.path.insert(0, str(PROJECT_DIR))
 
 import torch
 import numpy as np
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from rdkit import Chem
 from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator
 
@@ -48,6 +52,12 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type", "Authorization"],
 )
+
+# Rate limiting - prevents DoS attacks
+# Default: 30 requests/minute for prediction, 100/minute for other endpoints
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # =============================================================================
 # Request/Response Models
@@ -336,7 +346,8 @@ async def startup_event():
 
 
 @app.get("/", response_model=dict)
-async def root():
+@limiter.limit("100/minute")
+async def root(request: Request):
     """Root endpoint with API information."""
     return {
         "name": "Molecular Toxicity Prediction API",
@@ -350,7 +361,8 @@ async def root():
 
 
 @app.get("/health", response_model=HealthResponse)
-async def health_check():
+@limiter.limit("100/minute")
+async def health_check(request: Request):
     """Health check endpoint."""
     return HealthResponse(
         status="healthy",
@@ -363,18 +375,19 @@ async def health_check():
 
 
 @app.post("/predict", response_model=PredictionResponse)
-async def predict_toxicity(request: PredictionRequest):
+@limiter.limit("30/minute")
+async def predict_toxicity(request: Request, prediction_request: PredictionRequest):
     """
     Predict toxicity endpoints for a molecule.
 
     Args:
-        request: PredictionRequest with SMILES string and optional model choice
+        prediction_request: PredictionRequest with SMILES string and optional model choice
 
     Returns:
         PredictionResponse with toxicity predictions for all 12 Tox21 endpoints
     """
-    smiles = request.smiles
-    model_choice = request.model.lower()
+    smiles = prediction_request.smiles
+    model_choice = prediction_request.model.lower() if prediction_request.model else "ensemble"
 
     # Validate SMILES
     mol = Chem.MolFromSmiles(smiles)
@@ -426,7 +439,8 @@ async def predict_toxicity(request: PredictionRequest):
 
 
 @app.get("/tasks", response_model=dict)
-async def list_tasks():
+@limiter.limit("100/minute")
+async def list_tasks(request: Request):
     """List all toxicity endpoints with descriptions."""
     return {
         "tasks": [
