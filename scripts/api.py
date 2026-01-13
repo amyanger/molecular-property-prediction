@@ -18,7 +18,7 @@ from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyHeader
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -85,14 +85,31 @@ async def verify_api_key(api_key: str = Depends(api_key_header)):
 # =============================================================================
 
 
+# Input validation constants
+MAX_SMILES_LENGTH = 500  # Maximum SMILES string length
+VALID_MODELS = {"mlp", "gnn", "attentivefp", "ensemble"}
+
+
 class PredictionRequest(BaseModel):
     """Request model for toxicity prediction."""
 
-    smiles: str = Field(..., description="SMILES string of the molecule")
+    smiles: str = Field(
+        ...,
+        description="SMILES string of the molecule",
+        min_length=1,
+        max_length=MAX_SMILES_LENGTH,
+    )
     model: Optional[str] = Field(
         default="ensemble",
         description="Model to use: 'mlp', 'gnn', 'attentivefp', or 'ensemble'"
     )
+
+    @field_validator("model")
+    @classmethod
+    def validate_model_choice(cls, v):
+        if v is not None and v.lower() not in VALID_MODELS:
+            raise ValueError(f"Invalid model. Must be one of: {', '.join(VALID_MODELS)}")
+        return v
 
     class Config:
         json_schema_extra = {
