@@ -14,9 +14,10 @@ sys.path.insert(0, str(PROJECT_DIR))
 
 import torch
 import numpy as np
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -58,6 +59,26 @@ app.add_middleware(
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# API Key Authentication - optional, enabled when API_KEY env var is set
+# Set API_KEY environment variable to enable authentication
+API_KEY = os.getenv("API_KEY")
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+async def verify_api_key(api_key: str = Depends(api_key_header)):
+    """Verify API key if authentication is enabled."""
+    if API_KEY is None:
+        # Authentication disabled - allow all requests
+        return None
+    if api_key is None or api_key != API_KEY:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or missing API key. Provide X-API-Key header.",
+            headers={"WWW-Authenticate": "ApiKey"},
+        )
+    return api_key
+
 
 # =============================================================================
 # Request/Response Models
@@ -376,7 +397,11 @@ async def health_check(request: Request):
 
 @app.post("/predict", response_model=PredictionResponse)
 @limiter.limit("30/minute")
-async def predict_toxicity(request: Request, prediction_request: PredictionRequest):
+async def predict_toxicity(
+    request: Request,
+    prediction_request: PredictionRequest,
+    api_key: str = Depends(verify_api_key),
+):
     """
     Predict toxicity endpoints for a molecule.
 
@@ -385,6 +410,8 @@ async def predict_toxicity(request: Request, prediction_request: PredictionReque
 
     Returns:
         PredictionResponse with toxicity predictions for all 12 Tox21 endpoints
+
+    Note: Requires X-API-Key header when API_KEY environment variable is set.
     """
     smiles = prediction_request.smiles
     model_choice = prediction_request.model.lower() if prediction_request.model else "ensemble"
