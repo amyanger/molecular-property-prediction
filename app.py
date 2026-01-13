@@ -28,6 +28,9 @@ from src.utils import get_atom_features_gcn, get_atom_features_afp, get_bond_fea
 @st.cache_resource
 def load_models():
     """Load all models (cached)."""
+    import logging
+    logger = logging.getLogger(__name__)
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     models = {}
 
@@ -38,8 +41,10 @@ def load_models():
         mlp.load_state_dict(checkpoint['model_state_dict'])
         mlp.to(device).eval()
         models['mlp'] = mlp
-    except:
-        pass
+    except FileNotFoundError:
+        logger.info("MLP model checkpoint not found - skipping")
+    except Exception as e:
+        logger.warning(f"Failed to load MLP model: {e}")
 
     # GCN
     try:
@@ -48,8 +53,10 @@ def load_models():
         gcn.load_state_dict(checkpoint['model_state_dict'])
         gcn.to(device).eval()
         models['gcn'] = gcn
-    except:
-        pass
+    except FileNotFoundError:
+        logger.info("GCN model checkpoint not found - skipping")
+    except Exception as e:
+        logger.warning(f"Failed to load GCN model: {e}")
 
     # AttentiveFP
     try:
@@ -59,8 +66,10 @@ def load_models():
         afp.load_state_dict(checkpoint['model_state_dict'])
         afp.to(device).eval()
         models['attentivefp'] = afp
-    except:
-        pass
+    except FileNotFoundError:
+        logger.info("AttentiveFP model checkpoint not found - skipping")
+    except Exception as e:
+        logger.warning(f"Failed to load AttentiveFP model: {e}")
 
     return models, device
 
