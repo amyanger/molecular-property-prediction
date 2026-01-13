@@ -247,7 +247,7 @@ class ModelRegistry:
             logger.warning(f"No checkpoint found for model: {metadata.model_id}")
             return None
 
-        checkpoint = torch.load(metadata.checkpoint_path, map_location="cpu")
+        checkpoint = torch.load(metadata.checkpoint_path, map_location="cpu", weights_only=True)
 
         model = model_class(**model_kwargs)
         model.load_state_dict(checkpoint["model_state_dict"])

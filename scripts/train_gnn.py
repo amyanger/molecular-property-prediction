@@ -52,7 +52,7 @@ def load_pretrained_weights(model, pretrained_path, device):
     """
     print(f"\nLoading pre-trained weights from: {pretrained_path}")
 
-    checkpoint = torch.load(pretrained_path, map_location=device, weights_only=False)
+    checkpoint = torch.load(pretrained_path, map_location=device, weights_only=True)
     encoder_state = checkpoint['encoder_state_dict']
     config = checkpoint.get('config', {})
 
@@ -393,7 +393,7 @@ def main(args):
     print("=" * 60)
 
     # Load best model
-    checkpoint = torch.load(MODELS_DIR / 'best_gnn_model.pt', weights_only=False)
+    checkpoint = torch.load(MODELS_DIR / 'best_gnn_model.pt', weights_only=True)
     model.load_state_dict(checkpoint['model_state_dict'])
 
     test_aucs = evaluate(model, test_loader, device)

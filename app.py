@@ -34,7 +34,7 @@ def load_models():
     # MLP
     try:
         mlp = MolecularPropertyPredictor(input_size=2048, hidden_sizes=[1024, 512, 256], num_tasks=12, dropout=0.3)
-        checkpoint = torch.load(MODELS_DIR / 'best_model.pt', weights_only=False, map_location=device)
+        checkpoint = torch.load(MODELS_DIR / 'best_model.pt', weights_only=True, map_location=device)
         mlp.load_state_dict(checkpoint['model_state_dict'])
         mlp.to(device).eval()
         models['mlp'] = mlp
@@ -44,7 +44,7 @@ def load_models():
     # GCN
     try:
         gcn = GNN(num_node_features=141, hidden_channels=256, num_layers=4, num_tasks=12, dropout=0.2)
-        checkpoint = torch.load(MODELS_DIR / 'best_gnn_model.pt', weights_only=False, map_location=device)
+        checkpoint = torch.load(MODELS_DIR / 'best_gnn_model.pt', weights_only=True, map_location=device)
         gcn.load_state_dict(checkpoint['model_state_dict'])
         gcn.to(device).eval()
         models['gcn'] = gcn
@@ -55,7 +55,7 @@ def load_models():
     try:
         afp = AttentiveFPPredictor(in_channels=148, hidden_channels=256, out_channels=12, edge_dim=12,
                                     num_layers=3, num_timesteps=3, dropout=0.2)
-        checkpoint = torch.load(MODELS_DIR / 'best_attentivefp_model.pt', weights_only=False, map_location=device)
+        checkpoint = torch.load(MODELS_DIR / 'best_attentivefp_model.pt', weights_only=True, map_location=device)
         afp.load_state_dict(checkpoint['model_state_dict'])
         afp.to(device).eval()
         models['attentivefp'] = afp

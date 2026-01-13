@@ -29,7 +29,7 @@ def load_model():
         dropout=0.3
     )
 
-    checkpoint = torch.load(MODELS_DIR / 'best_model.pt', weights_only=False)
+    checkpoint = torch.load(MODELS_DIR / 'best_model.pt', weights_only=True)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
 

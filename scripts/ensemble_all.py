@@ -53,7 +53,7 @@ def load_mlp_model(device):
         input_size=2048, hidden_sizes=[1024, 512, 256],
         num_tasks=12, dropout=0.3
     )
-    checkpoint = torch.load(MODELS_DIR / 'best_model.pt', weights_only=False, map_location=device)
+    checkpoint = torch.load(MODELS_DIR / 'best_model.pt', weights_only=True, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.to(device)
     model.eval()
@@ -65,7 +65,7 @@ def load_gcn_model(device):
         num_node_features=141, hidden_channels=256,
         num_layers=4, num_tasks=12, dropout=0.2
     )
-    checkpoint = torch.load(MODELS_DIR / 'best_gnn_model.pt', weights_only=False, map_location=device)
+    checkpoint = torch.load(MODELS_DIR / 'best_gnn_model.pt', weights_only=True, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.to(device)
     model.eval()
@@ -78,7 +78,7 @@ def load_attentivefp_model(device):
         out_channels=12, edge_dim=12,
         num_layers=3, num_timesteps=3, dropout=0.2
     )
-    checkpoint = torch.load(MODELS_DIR / 'best_attentivefp_model.pt', weights_only=False, map_location=device)
+    checkpoint = torch.load(MODELS_DIR / 'best_attentivefp_model.pt', weights_only=True, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.to(device)
     model.eval()

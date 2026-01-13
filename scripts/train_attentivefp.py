@@ -320,7 +320,7 @@ def main(args):
     print("Final Evaluation on Test Set")
     print("=" * 60)
 
-    checkpoint = torch.load(MODELS_DIR / 'best_attentivefp_model.pt', weights_only=False)
+    checkpoint = torch.load(MODELS_DIR / 'best_attentivefp_model.pt', weights_only=True)
     model.load_state_dict(checkpoint['model_state_dict'])
 
     test_aucs = evaluate(model, test_loader, device)

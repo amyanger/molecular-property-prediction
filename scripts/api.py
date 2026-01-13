@@ -111,7 +111,7 @@ def load_models():
     # MLP Model
     try:
         mlp = MolecularPropertyPredictor(input_size=2048, num_tasks=12)
-        checkpoint = torch.load(MODELS_DIR / 'best_model.pt', map_location=device, weights_only=False)
+        checkpoint = torch.load(MODELS_DIR / 'best_model.pt', map_location=device, weights_only=True)
         mlp.load_state_dict(checkpoint['model_state_dict'])
         mlp.to(device)
         mlp.eval()
@@ -122,7 +122,7 @@ def load_models():
     # GNN Model
     try:
         gnn = GNN(num_node_features=141, num_tasks=12)
-        checkpoint = torch.load(MODELS_DIR / 'best_gnn_model.pt', map_location=device, weights_only=False)
+        checkpoint = torch.load(MODELS_DIR / 'best_gnn_model.pt', map_location=device, weights_only=True)
         gnn.load_state_dict(checkpoint['model_state_dict'])
         gnn.to(device)
         gnn.eval()
@@ -133,7 +133,7 @@ def load_models():
     # AttentiveFP Model
     try:
         afp = AttentiveFPPredictor(in_channels=148, out_channels=12, edge_dim=12)
-        checkpoint = torch.load(MODELS_DIR / 'best_attentivefp_model.pt', map_location=device, weights_only=False)
+        checkpoint = torch.load(MODELS_DIR / 'best_attentivefp_model.pt', map_location=device, weights_only=True)
         afp.load_state_dict(checkpoint['model_state_dict'])
         afp.to(device)
         afp.eval()

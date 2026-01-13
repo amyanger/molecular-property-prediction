@@ -330,7 +330,7 @@ def main(args):
     print("=" * 60)
 
     # Load best model
-    checkpoint = torch.load(MODELS_DIR / 'best_model.pt', weights_only=False)
+    checkpoint = torch.load(MODELS_DIR / 'best_model.pt', weights_only=True)
     model.load_state_dict(checkpoint['model_state_dict'])
 
     test_aucs = evaluate(model, test_loader, device)

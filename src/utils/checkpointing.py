@@ -202,7 +202,7 @@ class CheckpointManager:
         if not checkpoint_path.exists():
             raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
 
-        checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+        checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=True)
 
         model.load_state_dict(checkpoint['model_state_dict'])
 
@@ -304,7 +304,7 @@ def load_model_for_inference(
     Returns:
         Dictionary with metadata and config
     """
-    checkpoint = torch.load(filepath, map_location=device, weights_only=False)
+    checkpoint = torch.load(filepath, map_location=device, weights_only=True)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
 
