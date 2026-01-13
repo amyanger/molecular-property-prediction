@@ -175,12 +175,44 @@ def predict_single(smiles, models, device):
     return sum(w * p for w, p in zip(weights, predictions))
 
 
+# Security constants
+MAX_BATCH_SIZE = 10000  # Maximum number of molecules per batch
+MAX_SMILES_LENGTH = 500  # Maximum SMILES string length
+ALLOWED_EXTENSIONS = {'.csv', '.txt'}
+
+
+def validate_filepath(filepath: Path) -> None:
+    """Validate input file path for security."""
+    # Resolve to absolute path to prevent path traversal
+    filepath = filepath.resolve()
+
+    # Check file exists
+    if not filepath.exists():
+        raise FileNotFoundError(f"Input file not found: {filepath}")
+
+    # Check file extension
+    if filepath.suffix.lower() not in ALLOWED_EXTENSIONS:
+        raise ValueError(f"Invalid file type. Allowed: {', '.join(ALLOWED_EXTENSIONS)}")
+
+    # Check file is actually a file, not a directory
+    if not filepath.is_file():
+        raise ValueError(f"Path is not a file: {filepath}")
+
+
 def load_input_file(filepath):
     """Load SMILES from input file (CSV or TXT)."""
     filepath = Path(filepath)
 
-    if filepath.suffix == '.csv':
+    # Security validation
+    validate_filepath(filepath)
+
+    if filepath.suffix.lower() == '.csv':
         df = pd.read_csv(filepath)
+
+        # Enforce batch size limit
+        if len(df) > MAX_BATCH_SIZE:
+            raise ValueError(f"Batch size {len(df)} exceeds maximum of {MAX_BATCH_SIZE}")
+
         # Look for SMILES column
         smiles_col = None
         for col in ['smiles', 'SMILES', 'Smiles', 'canonical_smiles', 'mol']:
@@ -206,7 +238,17 @@ def load_input_file(filepath):
     else:  # TXT file - one SMILES per line
         with open(filepath, 'r') as f:
             smiles_list = [line.strip() for line in f if line.strip()]
+
+        # Enforce batch size limit
+        if len(smiles_list) > MAX_BATCH_SIZE:
+            raise ValueError(f"Batch size {len(smiles_list)} exceeds maximum of {MAX_BATCH_SIZE}")
+
         ids = list(range(len(smiles_list)))
+
+    # Validate SMILES lengths
+    for i, smi in enumerate(smiles_list):
+        if len(str(smi)) > MAX_SMILES_LENGTH:
+            raise ValueError(f"SMILES at index {i} exceeds max length of {MAX_SMILES_LENGTH}")
 
     return ids, smiles_list
 
